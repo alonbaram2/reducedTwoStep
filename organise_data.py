@@ -22,9 +22,9 @@ import ipdb
 #%%
 
 # original data from pedro
-root_orig      = op.join('/','home','fs0','abaram','scratch','twoStep','original_data')
+root_orig      = op.join('/','vols','Scratch','abaram','twoStep','original_data')
 # target directory for BIDS organised data
-root_target    = op.join('/','home','fs0','abaram','scratch','twoStep','BIDS')
+root_target    = op.join('/','vols','Scratch','abaram','twoStep','BIDS')
 if not op.exists(root_target):
     os.makedirs(root_target)
 # get the dirs of the log files - these look like 6??behav/
@@ -235,6 +235,20 @@ bids_dict = {
       {
          "dataType": "fmap",
          "modalityLabel": "magnitude1",
+         "IntendedFor": [ 
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+            ],           
          "criteria": {
             "SidecarFilename": "*gre_field_mapping*",
             "EchoTime": 0.00487,
@@ -248,7 +262,21 @@ bids_dict = {
       },
       {
          "dataType": "fmap",
-         "modalityLabel": "magnitude2",
+         "modalityLabel": "magnitude2",  
+         "IntendedFor": [ 
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+            ],          
          "criteria": {
             "SidecarFilename": "*gre_field_mapping*",
             "ImageType": [
@@ -263,6 +291,20 @@ bids_dict = {
       {
          "dataType": "fmap",
          "modalityLabel": "phasediff",
+         "IntendedFor": [ 
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+            ],           
          "criteria": {
             "SidecarFilename": "*gre_field_mapping*_ph*"
          },
@@ -270,7 +312,7 @@ bids_dict = {
             "EchoTime1": 0.00487,
             "EchoTime2": 0.00733
          }
-      },
+      }
    ]
 }
  
@@ -301,8 +343,6 @@ for iSubj, orig_subj_num in enumerate(orig_subj_nums):
     os.system('dcm2bids -d ' + orig_data_path + ' -p ' + new_subj_number + ' -c ' + op.join(root_target,'dcm2bids_configFile.json'))
     print(new_subj_number)
     
-    
-
     # copy dicom folders to sourcedata, with new subject IDs.     
     if not op.exists(op.join(root_target,'sourcedata',new_subj_name)):
         shutil.copytree(orig_data_path,op.join(root_target,'sourcedata',new_subj_name))    
@@ -371,29 +411,29 @@ for iSubj, orig_subj_num in enumerate(orig_subj_nums):
             new_fname = op.join(subj_func_path, new_subj_names[iSubj] + '_task-simple2step_run-' + r + '_events.tsv')
             events_bids.to_csv(new_fname, sep='\t', index=False)
         
+#%% clean up - make sure all filenames conform to BIDS standard
+if op.exists(op.join(root_target,'tmp_dcm2bids')):
+    shutil.rmtree(op.join(root_target,'tmp_dcm2bids'))
+    
+os.remove(op.join(root_target,'dcm2bids_configFile.json'))    
 
-if os.exist(op.join(root_target,'tmp_dcm2bids')):
-    os.rmdir(op.join(root_target,'tmp_dcm2bids'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# several sybjects had a run that started and was terminated quickly. Change
+# the names of the file of the full run to conform to the BIDS standard and then
+# delete the other empty runs
+os.rename(op.join(root_target,'sub-09/func/sub-09_task-simple2step_run-01_run-02_bold.nii.gz'),op.join(root_target,'sub-09/func/sub-09_task-simple2step_run-01_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-09/func/sub-09_task-simple2step_run-01_run-02_bold.json'),op.join(root_target,'sub-09/func/sub-09_task-simple2step_run-01_bold.json'))
+os.rename(op.join(root_target,'sub-11/func/sub-11_task-simple2step_run-01_run-02_bold.nii.gz'),op.join(root_target,'sub-11/func/sub-11_task-simple2step_run-01_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-11/func/sub-11_task-simple2step_run-01_run-02_bold.json'),op.join(root_target,'sub-11/func/sub-11_task-simple2step_run-01_bold.json'))
+os.rename(op.join(root_target,'sub-13/func/sub-13_task-simple2step_run-01_run-03_bold.nii.gz'),op.join(root_target,'sub-13/func/sub-13_task-simple2step_run-01_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-13/func/sub-13_task-simple2step_run-01_run-03_bold.json'),op.join(root_target,'sub-13/func/sub-13_task-simple2step_run-01_bold.json'))
+os.rename(op.join(root_target,'sub-16/func/sub-16_task-simple2step_run-01_run-04_bold.nii.gz'),op.join(root_target,'sub-16/func/sub-16_task-simple2step_run-01_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-16/func/sub-16_task-simple2step_run-01_run-04_bold.json'),op.join(root_target,'sub-16/func/sub-16_task-simple2step_run-01_bold.json'))
+os.rename(op.join(root_target,'sub-24/func/sub-24_task-simple2step_run-09_run-02_bold.nii.gz'),op.join(root_target,'sub-24/func/sub-24_task-simple2step_run-09_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-24/func/sub-24_task-simple2step_run-09_run-02_bold.json'),op.join(root_target,'sub-24/func/sub-24_task-simple2step_run-09_bold.json'))
+os.rename(op.join(root_target,'sub-26/func/sub-26_task-simple2step_run-01_run-04_bold.nii.gz'),op.join(root_target,'sub-26/func/sub-26_task-simple2step_run-01_bold.nii.gz'))
+os.rename(op.join(root_target,'sub-26/func/sub-26_task-simple2step_run-01_run-04_bold.json'),op.join(root_target,'sub-26/func/sub-26_task-simple2step_run-01_bold.json'))   
+for f in glob(op.join(root_target,'*','func','*run-*run*')):
+    os.remove(f)
 
 
 
