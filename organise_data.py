@@ -19,6 +19,20 @@ import json
 import ipdb
 # import seaborn as sns  # seaborn is the main plotting library for Pandas
 # sns.set()
+
+
+#%%
+def replace_spaces_in_all_subfolders_and_files(parent,newChar):
+    for path, folders, files in os.walk(parent):
+        for f in files:
+            os.rename(os.path.join(path, f), os.path.join(path, f.replace(' ', newChar)))
+        for i in range(len(folders)):
+            new_name = folders[i].replace(' ', newChar)
+            os.rename(os.path.join(path, folders[i]), os.path.join(path, new_name))
+            folders[i] = new_name
+
+        
+
 #%%
 
 # original data from pedro
@@ -34,10 +48,13 @@ orig_logs_dirpaths.sort()
 # get first 3 characters of the last part of the path (normpath removes the slash and basepath gets the las part) - 6??
 orig_subj_nums = [op.basename(op.normpath(path))[0:3] for path in orig_logs_dirpaths]
 # number of subjects
-nSubj = len(orig_subj_nums)
+nSubj = 28
 nRuns = 12
 nTrials = 25 # trials in each run
 nEventsInTrial = 6; # stim1 onset, choice1, stim2 onset, (forced) choice 2, outcome, ITI onset
+# runs is what Pedro calls sessions - 1-12. Zero pad
+runs = [str(x) for x in np.arange(nRuns)+1] 
+runs = [str(x).zfill(2) for x in runs]
 
 # get new, BIDS subj numbers, starting from 1 and zero-padded.
 new_subj_numbers = np.arange(len(orig_subj_nums)) + 1
@@ -90,7 +107,7 @@ for iSubj, orig_subj_num in enumerate(orig_subj_nums):
 ## this was done by first running dcm2bids_helper
 ## on the dicom folder of one example subject, and looking at sidecar JSON files
 ## there. That's how I identified the "criteria" - how to know which sidecar 
-## corresponds to which sequence. The echo times of the fieldmaps were also taken from there. 
+## corresponds to which sequence. The echo times of the fieldmaps were also takten from there. 
 bids_dict = {
    "descriptions": [
        {
@@ -315,6 +332,7 @@ bids_dict = {
       }
    ]
 }
+
  
 # change dir to new root
 os.chdir(root_target)
@@ -326,32 +344,25 @@ with open(op.join(root_target,'dcm2bids_configFile.json'), 'w') as f:
 # create BIDS scaffolding -
 # os.system('dcm2bids_scaffold') 
 
-# runs is what Pedro calls sessions - 1-12. Zero pad
-runs = [str(x) for x in np.arange(nRuns)+1] 
-runs = [str(x).zfill(2) for x in runs]
-
 for iSubj, orig_subj_num in enumerate(orig_subj_nums):
     orig_logs_path = orig_logs_dirpaths[iSubj]         
-    orig_data_path = glob(op.join(root_orig,'flywheel*','costa','Pedro*',orig_subj_num,'CostaPedro*'))[0]
-    
-    # new subj ID without "sub-"
-    new_subj_number = new_subj_numbers[iSubj]
-    # new subj name with "sub-"
-    new_subj_name = new_subj_names[iSubj]
+    orig_data_path = glob(op.join(root_orig,'flywheel*','costa','Pedro*',orig_subj_num,'CostaPedro*'))[0]    
         
     # run dcm2bids
-    os.system('dcm2bids -d ' + orig_data_path + ' -p ' + new_subj_number + ' -c ' + op.join(root_target,'dcm2bids_configFile.json'))
-    print(new_subj_number)
+    os.system('dcm2bids -d ' + orig_data_path + ' -p ' + new_subj_numbers[iSubj] + ' -c ' + op.join(root_target,'dcm2bids_configFile.json'))
+    print(new_subj_numbers[iSubj])
     
     # copy dicom folders to sourcedata, with new subject IDs.     
-    if not op.exists(op.join(root_target,'sourcedata',new_subj_name)):
-        shutil.copytree(orig_data_path,op.join(root_target,'sourcedata',new_subj_name))    
+    if not op.exists(op.join(root_target,'sourcedata',new_subj_names[iSubj])):
+        shutil.copytree(orig_data_path,op.join(root_target,'sourcedata',new_subj_names[iSubj]))    
     
-    # create new_subj_func_path if it doesn't exist
-    
+#%% save tsv events files
+for iSubj, orig_subj_num in enumerate(orig_subj_nums):
+    orig_logs_path = orig_logs_dirpaths[iSubj]     
+    # create new_subj_func_path if it doesn't exist    
     subj_func_path  = op.join(root_target,new_subj_names[iSubj],'func')
 
-    print(f'save tsv log files to \n {subj_func_path} \n')
+    print(f'save tsv events files to \n {subj_func_path} \n')
     for r in runs:
         ## log files ##
         # get the filename that doesn't have '_logs' at the end. 
@@ -363,32 +374,49 @@ for iSubj, orig_subj_num in enumerate(orig_subj_nums):
         
             # create an empty table with all the columns we need. there are 5 events
             # each trial and 25 trials so 125 rows
-            events_bids = pd.DataFrame(columns=['onset','duration','response_time','trial','event','state','reward'],index=np.arange(nEventsInTrial*nTrials))
+            events_bids = pd.DataFrame(columns=['onset','duration','duration2fb','response_time','trial','event','choice1','state','reward'],index=np.arange(nEventsInTrial*nTrials))
             for iTrial in np.arange(nTrials):
                 events_bids['trial'][iTrial*nEventsInTrial:iTrial*nEventsInTrial+nEventsInTrial] = iTrial + 1
                 
+                # stim1: Top and bottom circles highlighted: choice available. 
+                # duration is up until the button press 
+                # duration2fb is duration until stim2 - until feedback on the second state reached is known 
                 events_bids['event'][iTrial*nEventsInTrial] = 'stim1'
                 events_bids['onset'][iTrial*nEventsInTrial] = logs_data['stim1ons_ms'][iTrial]
                 events_bids['duration'][iTrial*nEventsInTrial] = logs_data['choice1ons_ms'][iTrial] - logs_data['stim1ons_ms'][iTrial]
+                events_bids['duration2fb'][iTrial*nEventsInTrial] = logs_data['stim2ons_ms'][iTrial] - logs_data['stim1ons_ms'][iTrial]
                 events_bids['response_time'][iTrial*nEventsInTrial] = logs_data['choice1ons_ms'][iTrial] - logs_data['stim1ons_ms'][iTrial]
                 
+                # choice1: first choice made - button press. 
+                # duration is until the choice that was made is highlighted ("jitter2_ms")
+                # duration2fb is until stim2 - until feedback on the second state reached is known
                 events_bids['event'][iTrial*nEventsInTrial + 1] = 'choice1'
                 events_bids['onset'][iTrial*nEventsInTrial + 1] = logs_data['choice1ons_ms'][iTrial]
                 events_bids['duration'][iTrial*nEventsInTrial + 1] = logs_data['jitter2_ms'][iTrial] - logs_data['choice1ons_ms'][iTrial]
-
+                events_bids['duration2fb'][iTrial*nEventsInTrial + 1] = logs_data['stim2ons_ms'][iTrial] - logs_data['choice1ons_ms'][iTrial]
+                events_bids['choice1'][iTrial*nEventsInTrial + 1] = logs_data['choice1'][iTrial]
+                
+                # stim2: also known as "transition": the second step state. only one of left/right circles is highlighted. 
+                # duration is until choice is made.
+                #duration2fb is until the outcome (reward) is revealed. note that the time of outcome is specified by jitter3_ms+jitter3           
                 events_bids['event'][iTrial*nEventsInTrial + 2] = 'stim2'
                 events_bids['onset'][iTrial*nEventsInTrial + 2] = logs_data['stim2ons_ms'][iTrial]
                 events_bids['duration'][iTrial*nEventsInTrial + 2] = logs_data['choice2ons_ms'][iTrial] - logs_data['stim2ons_ms'][iTrial]
+                events_bids['duration2fb'][iTrial*nEventsInTrial + 2] = logs_data['jitter3_ms'][iTrial] + logs_data['jitter3'][iTrial] - logs_data['stim2ons_ms'][iTrial]                
                 events_bids['response_time'][iTrial*nEventsInTrial + 2] = logs_data['choice2ons_ms'][iTrial] - logs_data['stim2ons_ms'][iTrial]
                 events_bids['state'][iTrial*nEventsInTrial + 2] = logs_data['state'][iTrial]
                 
+                # choice2: second choice made - button press. 
+                # duration is until the choice that was made is highlighted ("jitter3_ms")
+                # duration2fb is until outcome fedback. note that the time of outcome is specified by jitter3_ms+jitter3
                 events_bids['event'][iTrial*nEventsInTrial + 3] = 'choice2'
                 events_bids['onset'][iTrial*nEventsInTrial + 3] = logs_data['choice2ons_ms'][iTrial]
                 events_bids['duration'][iTrial*nEventsInTrial + 3] = logs_data['jitter3_ms'][iTrial] - logs_data['choice2ons_ms'][iTrial]
+                events_bids['duration2fb'][iTrial*nEventsInTrial + 3] = logs_data['jitter3_ms'][iTrial] + logs_data['jitter3'][iTrial] - logs_data['choice2ons_ms'][iTrial]                                
                 events_bids['state'][iTrial*nEventsInTrial + 3] = logs_data['state'][iTrial]
 
                 events_bids['event'][iTrial*nEventsInTrial + 4] = 'outcome'
-                events_bids['onset'][iTrial*nEventsInTrial + 4] = logs_data['jitter3_ms'][iTrial] + logs_data['jitter3'][iTrial]
+                events_bids['onset'][iTrial*nEventsInTrial + 4] = logs_data['jitter3_ms'][iTrial] + logs_data['jitter3'][iTrial] # this is correct though it looks strange
                 events_bids['duration'][iTrial*nEventsInTrial + 4] = 1500 # there was no jitter here
                 events_bids['reward'][iTrial*nEventsInTrial + 4] = logs_data['won'][iTrial]
 
@@ -398,11 +426,15 @@ for iSubj, orig_subj_num in enumerate(orig_subj_nums):
             # get duration of ITI period by subtracting the stim1 onset of next trial from the end of outcome period (outcome_onset + 1500ms)
             for iTrial in np.arange(nTrials-1):                                            
                 events_bids['duration'][iTrial*nEventsInTrial + 5] = events_bids['onset'][(iTrial+1)*nEventsInTrial] - (events_bids['onset'][iTrial*nEventsInTrial + 4] + 1500)
+                # do the same by subtracting *stim2* (that's where +2 comes from) onset of next trial (rather than stim1) from the end of outcome period (outcome_onset + 1500ms). stim2 is the next "feedback"
+                events_bids['duration2fb'][iTrial*nEventsInTrial + 5] = events_bids['onset'][(iTrial+1)*nEventsInTrial +2 ] - (events_bids['onset'][iTrial*nEventsInTrial + 4] + 1500)
             events_bids['duration'][nEventsInTrial*nTrials -1] = 1000 # arbitrarily set ITI duration of last trial         
+            events_bids['duration2fb'][nEventsInTrial*nTrials -1] = 1000  # arbitrarily set ITI duration of last trial, though this is a lie because there is no fb following this trial
             
             # convert ms to seconds and subtract the first trigger (stim1 onset of trial 0)
             events_bids['onset'] = events_bids['onset'].div(1000) - (events_bids['onset'][0] / 1000)                   
             events_bids['duration'] = events_bids['duration'].div(1000)                    
+            events_bids['duration2fb'] = events_bids['duration2fb'].div(1000)                    
             events_bids['response_time'] = events_bids['response_time'].div(1000)                    
             
             events_bids.fillna('n/a', inplace=True)
@@ -437,15 +469,3 @@ for f in glob(op.join(root_target,'*','func','*run-*run*')):
 
 
 
-
-def replace_spaces_in_all_subfolders_and_files(parent,newChar):
-    for path, folders, files in os.walk(parent):
-        for f in files:
-            os.rename(os.path.join(path, f), os.path.join(path, f.replace(' ', newChar)))
-        for i in range(len(folders)):
-            new_name = folders[i].replace(' ', newChar)
-            os.rename(os.path.join(path, folders[i]), os.path.join(path, new_name))
-            folders[i] = new_name
-
-        
-            

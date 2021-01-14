@@ -1,0 +1,39 @@
+clear
+
+rootScripts = '/home/fs0/abaram/scripts/twoStep/spm';
+addpath(genpath(rootScripts));
+spmPath = '/vols/Scratch/abaram/MATLAB/spm12';
+addpath(spmPath);
+
+rootData    = '/vols/Scratch/abaram/twoStep/BIDS/derivatives';
+
+subjects = {'sub-01','sub-02','sub-03','sub-04','sub-05','sub-06','sub-07','sub-08','sub-09','sub-10',...
+       'sub-11','sub-12','sub-13','sub-14','sub-15','sub-16','sub-17','sub-18','sub-19',...
+       'sub-20','sub-21','sub-22','sub-23','sub-24','sub-25','sub-26','sub-27','sub-28'};
+
+nSub = length(subjects);
+nRun  = 12; 
+nTrialsPerBlock = 25; % notice that a few runs miss one or two trials
+
+%% ###  GLM1 - first level
+glm   = 'glm-001'
+space = 'MNI152NLin6Asym';
+denoising = '1'; % denoising strategy. legend: /home/fs0/abaram/scripts/twoStep/spm/prepare_confound_regs.py
+
+for iSubj=1:length(subjects)
+    subj=subjects{iSubj}
+    % get regressors
+    getEvs_glm001(rootData,subj)
+    
+    % run SPM first-level GLM
+    runSpmGlmEst(rootData,subj,glm,space,denoising)
+    
+    % calculate contrasts - reward
+    runSpmContrast_glm001(rootData,subj,space,denoising)
+    
+    % warp contrasts to standard space and smooth
+    smoothAndWarpContrasts(rootData,subjects{iSubj},'GLM1',fwhm)   
+end
+
+% second level GLM - Fig 1e
+univariateGroupLevel(rootData,subjects,'GLM1')
