@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\app\mainwindow.py", line 2998, in main
+    mainwindow = run_spyder(app, options, args)
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\app\mainwindow.py", line 2902, in run_spyder
+    main.setup()
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\app\mainwindow.py", line 808, in setup
+    from spyder.plugins.editor import Editor
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\plugins\editor.py", line 41, in <module>
+    from spyder.utils.introspection.manager import IntrospectionManager
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\utils\introspection\manager.py", line 20, in <module>
+    from spyder.utils.introspection.plugin_client import PluginClient
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\spyder\utils\introspection\plugin_client.py", line 18, in <module>
+    import zmq
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\__init__.py", line 34, in <module>
+    from zmq import backend
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\backend\__init__.py", line 40, in <module>
+    reraise(*exc_info)
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\utils\sixcerpt.py", line 34, in reraise
+    raise value
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\backend\__init__.py", line 27, in <module>
+    _ns = select_backend(first)
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\backend\select.py", line 27, in select_backend
+    mod = __import__(name, fromlist=public_api)
+  File "C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\backend\cython\__init__.py", line 6, in <module>
+    from . import (constants, error, message, context,
+ImportError: cannot import name 'constants' from 'zmq.backend.cython' (C:\Users\pmfcr\Anaconda3\lib\site-packages\zmq\backend\cython\__init__.py)
