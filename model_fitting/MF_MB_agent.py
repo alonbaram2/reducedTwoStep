@@ -5,9 +5,9 @@ from numba import njit
 
 import RL_utils as ru
 
-# Agent info.
+# Agent info ------------------------------------------------------
 
-name = 'MF_MBi'
+name = 'MF_MB'
 param_names  = ['G_td', 'G_mb', 'alpQ', 'lbd' , 'alpT', 'bias', 'pers']
 param_ranges = ['pos' , 'pos' , 'unit', 'unit', 'unit', 'unc' , 'unc' ]
 n_params = len(param_names)
@@ -18,14 +18,29 @@ def session_likelihood(session, params):
     '''Compute the data likelihood for session given params.'''
 
     choices, second_steps, outcomes = ru.unpack_trial_data(session)
-    Q_tot = compute_values(choices, second_steps, outcomes, params)
+    Q_tot, Q, M, K = compute_values(choices, second_steps, outcomes, params)
         
     return ru.session_log_likelihood(choices, Q_tot)
 
-# Compute values    ----------------------------------------------
+# Return values  -------------------------------------------------
+
+def return_values(session, fit):
+    '''Return the action values for a session given a model fit.'''
+
+    assert fit['params'].columns.tolist() == param_names, 'Parameters do not match.'
+
+    choices, second_steps, outcomes = ru.unpack_trial_data(session)
+    params = fit['params'].to_numpy().flatten()
+   
+    return compute_values(choices, second_steps, outcomes, params)
+
+# Compute values -------------------------------------------------
 
 @njit()
 def compute_values(choices, second_steps, outcomes, params):
+    '''Compute the trial by trial values given trial events and
+    paramters.  All arguments and returned values are numpy arrays
+    to allow Numba JIT compilation for speedup.'''
 
     # Unpack parameters.
     n_trials = len(choices)
@@ -67,5 +82,5 @@ def compute_values(choices, second_steps, outcomes, params):
     K[1,1:] += pers*(choices[:-1]-0.5) # Apply perseveration.
     Q_tot = Q_net + K 
 
-    return Q_tot
+    return Q_tot, Q, M, K 
 

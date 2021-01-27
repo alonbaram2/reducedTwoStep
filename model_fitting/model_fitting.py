@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pylab as plt
 import scipy.optimize as op
 from scipy.stats import gamma, beta, norm
@@ -30,11 +31,11 @@ def plot_priors():
     plt.title('Unconstrained')
     plt.tight_layout()
 
-# Fitting ------------------------------------------------------------
+# Fit session -------------------------------------------------------
 
-def fit_session(session, agent, repeats=10, use_prior=False):
+def fit_session(session, agent, repeats=10, use_prior=True):
     '''ML or MAP fit of session using constrained optimisation.'''
-    if use_prior:
+    if use_prior: #
         fit_func = partial(_neg_log_posterior_prob, session=session, agent=agent)
     else:
         fit_func =  partial(_neg_log_likelihood, session=session, agent=agent)
@@ -52,30 +53,36 @@ def fit_session(session, agent, repeats=10, use_prior=False):
         logpostprob = None
         loglik = - fit['fun']
     n_trials = len(session)
-    return {'agent_name' : agent.name,            
-            'param_names': agent.param_names,
-            'param_ranges': agent.param_ranges,
-            'n_params'   : agent.n_params,
-            'params'     : fit['x'],
-            'loglik'     : loglik, 
-            'logpostprob': logpostprob,
-            'n_trials'   : n_trials,
-            'BIC'        : -2*loglik + np.log(n_trials)*agent.n_params,
-            'AIC'        : -2*loglik + 2*agent.n_params}
+    # Return fit as single row dataframe.
+    info_df = pd.DataFrame({
+        'subject'     : [int(session['subject'].unique())],
+        'sessions'    : [ f"{session['session_n'].iloc[0]}-{session['session_n'].iloc[-1]}"],
+        'agent'       : [agent.name],
+        'loglik'      : [loglik],
+        'logpostprob' : [logpostprob],
+        'BIC'         : [-2*loglik + np.log(n_trials)*agent.n_params],
+        'AIC'         : [-2*loglik + 2*agent.n_params]})
+    info_df.columns = pd.MultiIndex.from_tuples([(c, '') for c in info_df])
+    fitted_params = pd.DataFrame(
+        {('params',n):[v] for n,v in zip(agent.param_names, fit['x'])})
+    param_ranges = pd.DataFrame(
+        {('param_ranges',n):[r] for n,r in zip(agent.param_names, agent.param_ranges)})
+    return pd.concat([info_df, fitted_params, param_ranges], axis=1)
 
 def _neg_log_likelihood(params, session, agent): 
     return -agent.session_likelihood(session, params)
 
 def _neg_log_posterior_prob(params, session, agent):
     loglik = agent.session_likelihood(session, params)
-    priorprob = _log_prior_prob(params, agent)
+    priorprob = _log_prior_prob(params, agent.param_ranges)
     return -loglik - priorprob
 
-def _log_prior_prob(params, agent):
+def _log_prior_prob(params, param_ranges):
+    '''Return the log prior probability of a set of parameters.'''
     priorprobs = np.hstack((
-        beta_prior.logpdf( params[np.array([r=='unit' for r in agent.param_ranges])]),
-        gamma_prior.logpdf(params[np.array([r=='pos' for r in agent.param_ranges])]),
-        norm_prior.logpdf( params[np.array([r=='unc' for r in agent.param_ranges])])))
+        beta_prior.logpdf( params[np.array([r=='unit' for r in param_ranges])]),
+        gamma_prior.logpdf(params[np.array([r=='pos'  for r in param_ranges])]),
+        norm_prior.logpdf( params[np.array([r=='unc'  for r in param_ranges])])))
     priorprobs[priorprobs<-1000] = -1000 # Protect against -inf.
     return np.sum(priorprobs)
 
@@ -90,3 +97,15 @@ def _get_init_params(param_ranges):
         elif rng == 'unc':
             params.append(norm_prior.rvs())
     return np.array(params)
+
+# Fit subjects -------------------------------------------------------
+
+def fit_subjects(data_df, agent, repeats=10, use_prior=True):
+    '''Fit each subject individually and return data frame with subject fits.'''
+    subjects = data_df.subject.unique()
+    fit_dfs = []
+    for subject in subjects:
+        print(f'Fitting subject: {subject}')
+        subject_df = data_df[data_df['subject'] == subject]
+        fit_dfs.append(fit_session(subject_df, agent, repeats, use_prior))
+    return pd.concat(fit_dfs, ignore_index=True)
