@@ -2,12 +2,21 @@
 
 import numpy as np
 from numba import njit
+import ipdb
 
 import RL_utils as ru
 
 # Agent info ------------------------------------------------------
 
 name = 'MF_MB'
+# param names: 
+# G_td: MF mixing parameter
+# G_mb: MB ixing parameter
+# alpQ: value learning rate
+# lbd: eligibility trace
+# alpT: transition learning rate
+# bias: bias to one of the options
+# pers: perservation of previous action
 param_names  = ['G_td', 'G_mb', 'alpQ', 'lbd' , 'alpT', 'bias', 'pers']
 param_ranges = ['pos' , 'pos' , 'unit', 'unit', 'unit', 'unc' , 'unc' ]
 n_params = len(param_names)
@@ -36,7 +45,7 @@ def return_values(session, fit):
 
 # Compute values -------------------------------------------------
 
-@njit()
+# @njit()
 def compute_values(choices, second_steps, outcomes, params):
     '''Compute the trial by trial values given trial events and
     paramters.  All arguments and returned values are numpy arrays
@@ -51,6 +60,7 @@ def compute_values(choices, second_steps, outcomes, params):
     V = np.zeros((2,n_trials)) # Second step TD values.
     T = np.zeros((2,n_trials)) # Transition probabilities.
 
+    
     # Initialize first trial transition probabilities.
     T[:,0] = [0.5,0.5]
 
@@ -74,7 +84,14 @@ def compute_values(choices, second_steps, outcomes, params):
 
     M = T*V[1,:] + (1.-T)*V[0,:] # Model based action values.
     Q_net = G_td*Q + G_mb*M      # Mixture of model based and model free values.
-    
+
+    # Get MB and MF prediction errors
+    Q_chosen = Q[[choices],range(n_trials)][0] # TD values of the chosen first-step action 
+    M_chosen = Q[[choices],range(n_trials)][0] # MB values of the chosen first-step action
+    V_experienced = V[[second_steps],range(n_trials)][0] # TD values of the experienced second step. 
+    PE_1st_MF = V_experienced - Q_chosen
+    PE_1st_MB = V_experienced - M_chosen
+    PE_2nd    = outcomes - V_experienced    
     # Apply bias and perseveration.
 
     K = np.zeros((2,n_trials)) # Modifier to values due to bias and perseveration.
@@ -82,5 +99,5 @@ def compute_values(choices, second_steps, outcomes, params):
     K[1,1:] += pers*(choices[:-1]-0.5) # Apply perseveration.
     Q_tot = Q_net + K 
 
-    return Q_tot, Q, M, K 
+    return Q_tot, Q, M, K, PE_1st_MF, PE_1st_MB, PE_2nd
 

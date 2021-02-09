@@ -7,7 +7,6 @@ import model_fitting as mf
 import model_plotting as mp
 
 # Load data.
-
 data_dir = join(dirname(dirname(abspath(__file__))), 'bhv_data')
 
 try: # Load data from .pkl if available.
