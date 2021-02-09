@@ -87,7 +87,7 @@ def compute_values(choices, second_steps, outcomes, params):
 
     # Get MB and MF prediction errors
     Q_chosen = Q[[choices],range(n_trials)][0] # TD values of the chosen first-step action 
-    M_chosen = Q[[choices],range(n_trials)][0] # MB values of the chosen first-step action
+    M_chosen = M[[choices],range(n_trials)][0] # MB values of the chosen first-step action
     V_experienced = V[[second_steps],range(n_trials)][0] # TD values of the experienced second step. 
     PE_1st_MF = V_experienced - Q_chosen
     PE_1st_MB = V_experienced - M_chosen
